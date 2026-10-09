@@ -1,304 +1,80 @@
-# Mock Entrega 2
+## Manejo de errores (Pre-entrega Módulo 3)
 
-API desarrollada con **Node.js, Express, MongoDB, Mongoose y Faker.js**.
+Todos los errores esperados pasan por un solo lugar: `src/middlewares/errorHandler.js`.
+Services y controllers **no arman respuestas de error**: los services lanzan `createError(ErrorDictionary.X)` y los controllers hacen `next(error)`.
 
-El objetivo de esta entrega es generar datos simulados y permitir realizar un **seed de usuarios en MongoDB**.
-
----
-
-## Instalación
-
-Clonar el proyecto y entrar a la carpeta:
-
-```bash
-cd mock-entrega2
+```
+src/utils/error.js                      # EErrors, ErrorDictionary y createError
+src/middlewares/errorHandler.js         # middleware global (respuesta uniforme)
+src/middlewares/routeNotFoundHandler.js # 404 para rutas inexistentes
 ```
 
-Instalar las dependencias:
+En `app.js` van al final, en este orden: `routeNotFoundHandler` y después `errorHandler`.
 
-```bash
-npm install
+### Uso
+
+```js
+throw createError(ErrorDictionary.USER_NOT_FOUND);
+throw createError(ErrorDictionary.QTY_EXCEEDS_MAX, { details: { max: 50 } });   // details/cause opcionales
 ```
 
-Si Faker no está instalado:
-
-```bash
-npm install @faker-js/faker
-```
-
----
-
-## Configuración
-
-Crear un archivo `.env` con las variables necesarias para la conexión a MongoDB.
-
-Ejemplo:
-
-```env
-MONGO_URI=mongodb://localhost:27017/mock-entrega2
-PORT=8080
-```
-
-> Los nombres de las variables deben coincidir con los utilizados en la configuración del proyecto.
-
----
-
-## Iniciar el proyecto
-
-Modo desarrollo:
-
-```bash
-npm run dev
-```
-
-O ejecución normal:
-
-```bash
-npm start
-```
-
-La API queda disponible en:
-
-```text
-http://localhost:8080
-```
-
----
-
-# Estructura de las rutas
-
-Las rutas principales se encuentran en:
-
-```text
-src/routes/
-```
-
-El archivo `index.js` centraliza las rutas:
-
-```text
-/api/users
-/api/orders
-/api/deliveries
-/api/mocks
-```
-
-Las rutas de mocking se encuentran en:
-
-```text
-src/routes/mocks.router.js
-```
-
-Estas rutas son montadas desde:
-
-```text
-/api/mocks
-```
-
-Por lo tanto:
-
-```text
-GET  /api/mocks/users
-POST /api/mocks/seed
-```
-
----
-
-# Mocking
-
-Los datos simulados se generan utilizando **Faker.js**.
-
-Los mocks se encuentran en:
-
-```text
-src/mocks/
-```
-
-Actualmente se utilizan:
-
-```text
-user.mocks.js
-order.mocks.js
-delivery.mocks.js
-```
-
-El mock de usuarios genera datos como:
-
-* nombre
-* apellido
-* email
-* contraseña
-* rol
-* disponibilidad
-
-Los datos generados mediante el endpoint `GET` **no se guardan en MongoDB**.
-
----
-
-# Controller de Mocks
-
-El controller se encuentra en:
-
-```text
-src/controllers/mocks.controllers.js
-```
-
-Se encarga de manejar las operaciones de mocking.
-
-La diferencia principal es:
-
-```text
-GET /api/mocks/users
-        ↓
-Genera usuarios con Faker
-        ↓
-Devuelve los datos
-        ↓
-NO guarda en MongoDB
-```
-
-Mientras que:
-
-```text
-POST /api/mocks/seed
-        ↓
-Genera usuarios con Faker
-        ↓
-Inserta los usuarios en MongoDB
-        ↓
-Devuelve la cantidad insertada
-```
-
----
-
-# Probar los endpoints
-
-## 1. Generar usuarios sin guardar
-
-Realizar:
-
-```http
-GET http://localhost:8080/api/mocks/users?qty=2
-```
-
-La respuesta contiene los usuarios generados por Faker.
-
-Ejemplo:
-
-```json
-[
-    {
-        "firstName": "Juan",
-        "lastName": "Gómez",
-        "email": "juan.gomez@example.com",
-        "password": "123456",
-        "role": "customer",
-        "isAvailable": false
-    },
-    {
-        "firstName": "Ana",
-        "lastName": "Pérez",
-        "email": "ana.perez@example.com",
-        "password": "123456",
-        "role": "driver",
-        "isAvailable": true
-    }
-]
-```
-
-Estos datos **solamente se generan y se devuelven**. No se insertan en MongoDB.
-
----
-
-## 2. Insertar usuarios en MongoDB
-
-Realizar:
-
-```http
-POST http://localhost:8080/api/mocks/seed?qty=10
-```
-
-La API genera 10 usuarios y los inserta en MongoDB.
-
-Respuesta esperada:
+### Estructura de la respuesta de error
 
 ```json
 {
-    "insertados": 10,
-    "coleccion": "usuarios"
+  "status": "error",
+  "error": {
+    "name": "QtyExceedsMax",
+    "code": 6,
+    "message": "La cantidad supera el máximo permitido",
+    "details": { "received": 51, "max": 50 }
+  }
 }
 ```
 
----
+- `name`: nombre del error (entrada del diccionario). `code`: categoría (`EErrors`). El HTTP status sale de la entrada del diccionario.
+- `details` es opcional.
+- El handler también traduce `CastError` (ID inválido), JSON mal formado, `ValidationError` de Mongoose y claves duplicadas (11000).
+- Un error inesperado (bug) responde `500 InternalError` y, en `NODE_ENV=production`, no expone el mensaje interno.
 
-# Comprobar en MongoDB
+| HTTP | Errores del diccionario |
+|------|-------------------------|
+| 400 | `InvalidId`, `InvalidJson`, `InvalidStatus`, `InvalidQuantity`, `InvalidQty`, `QtyExceedsMax`, `MissingFields`, `ValidationError`, `InvalidDriverRole` |
+| 403 | `AdminCreationForbidden` |
+| 404 | `UserNotFound`, `OrderNotFound`, `DeliverNotFound`, `DriverNotFound`, `RouteNotFound` |
+| 409 | `UserAlreadyExists`, `DuplicateKey` |
+| 500 | `MockGenerationFailed`, `SeedFailed`, `MissingApiKey`, `InternalError` |
 
-Después de ejecutar:
+### Mocks: validación de `qty`
 
-```http
-POST /api/mocks/seed?qty=10
+`qty` debe ser un entero entre **1 y 50** (`MOCKING_PARAMETERS.MAX`). Si no se envía, usa 10.
+Fallas posibles: cantidad inválida, cantidad sobre el máximo, error al generar datos (`MockGenerationFailed`) y error al insertar en la base (`SeedFailed`).
+
+### Cómo probar los casos inválidos
+
+Con el servidor levantado (puerto por defecto 8080):
+
+```bash
+# Mocks
+curl "localhost:8080/api/mocks/users?qty=5"            # 200
+curl "localhost:8080/api/mocks/users"                  # 200 (10 usuarios)
+curl "localhost:8080/api/mocks/users?qty=0"            # 400 InvalidQty
+curl "localhost:8080/api/mocks/users?qty=-3"           # 400 InvalidQty
+curl "localhost:8080/api/mocks/users?qty=abc"          # 400 InvalidQty
+curl "localhost:8080/api/mocks/users?qty=2.5"          # 400 InvalidQty
+curl "localhost:8080/api/mocks/users?qty=51"           # 400 QtyExceedsMax
+curl -X POST "localhost:8080/api/mocks/seed?qty=3"     # 201 { inserted: 3 }
+curl -X POST "localhost:8080/api/mocks/seed?qty=0"     # 400 InvalidQty
+# SeedFailed (500): apagar MongoDB (o forzar un email duplicado) y repetir el POST /seed
+
+# Resto de la API
+curl localhost:8080/api/nada                                              # 404 RouteNotFound
+curl localhost:8080/api/users/abc                                         # 400 InvalidId
+curl localhost:8080/api/users/64b000000000000000000000                    # 404 UserNotFound
+curl -X POST localhost:8080/api/users -H "Content-Type: application/json" -d '{'                                  # 400 InvalidJson
+curl -X POST localhost:8080/api/users -H "Content-Type: application/json" -d '{"role":"admin","email":"a@a.com"}' # 403 AdminCreationForbidden
+curl -X POST localhost:8080/api/users -H "Content-Type: application/json" -d '{"firstName":"Ana"}'                # 400 MissingFields
+curl -X POST localhost:8080/api/users -H "Content-Type: application/json" -d '{"email":"a@a.com"}'                # 400 ValidationError (campos requeridos)
+curl -X PUT  localhost:8080/api/orders/<id> -H "Content-Type: application/json" -d '{"status":"volando"}'         # 400 InvalidStatus
+curl -X POST localhost:8080/api/deliveries -H "Content-Type: application/json" -d '{"order":"64b000000000000000000000"}'  # 404 OrderNotFound
 ```
-
-abrir **MongoDB Compass** y conectarse a la misma base de datos utilizada por la aplicación.
-
-Buscar la colección:
-
-```text
-usuarios
-```
-
-o, si Mongoose utiliza el nombre plural automáticamente:
-
-```text
-users
-```
-
-Allí deberían aparecer los usuarios generados.
-
-Cada documento tendrá su `_id` generado automáticamente por MongoDB/Mongoose.
-
-Se puede comprobar que la cantidad de documentos insertados coincide con la respuesta del endpoint.
-
----
-
-# Flujo general
-
-```text
-Cliente
-   │
-   ▼
-/api
-   │
-   ▼
-/mocks
-   │
-   ├── GET /users
-   │       │
-   │       ▼
-   │    Faker
-   │       │
-   │       ▼
-   │    Respuesta JSON
-   │
-   └── POST /seed
-           │
-           ▼
-         Faker
-           │
-           ▼
-      User.insertMany()
-           │
-           ▼
-        MongoDB
-```
-
----
-
-## Tecnologías utilizadas
-
-* Node.js
-* Express
-* MongoDB
-* Mongoose
-* Faker.js
-* Nodemon
-* MongoDB Compass

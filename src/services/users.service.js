@@ -1,5 +1,5 @@
 import usersRepo from '../repositories/users.repo.js';
-import AppError from '../utils/error.js';
+import {createError, ErrorDictionary} from '../utils/error.js';
 import { USER_ROLES } from '../constants/index.js';
 class UsersService {
   async findAll() {
@@ -9,19 +9,23 @@ class UsersService {
   async findById(id) {
     const user = await usersRepo.findById(id);
     if (!user) {
-      throw new AppError('Usuario no encontrado', 404);
+      throw createError(ErrorDictionary.USER_NOT_FOUND)
     }
     return user;
   }
 
-  async create(userData) {
+   async create(userData) {
     if (userData.role === USER_ROLES.ADMIN) {
-      throw new AppError('No se puede crear un admin desde este endpoint', 403);
+      throw createError(ErrorDictionary.ADMIN_CREATION_FORBIDDEN)
+    }
+
+    if (!userData.email) {
+      throw createError(ErrorDictionary.MISSING_FIELDS, { details: { missing: ['email'] } });
     }
 
     const existingUser = await usersRepo.findByEmail(userData.email);
     if (existingUser) {
-      throw new AppError('Ya existe un usuario con ese email', 400);
+      throw createError(ErrorDictionary.USER_ALREADY_EXISTS);
     }
 
     const newUser = await usersRepo.create(userData);
@@ -31,7 +35,7 @@ class UsersService {
   async update(id, userData) {
     const updatedUser = await usersRepo.update(id, userData);
     if (!updatedUser) {
-      throw new AppError('Usuario no encontrado', 404);
+      throw createError(ErrorDictionary.USER_NOT_FOUND);
     }
     return updatedUser;
   }
@@ -39,7 +43,7 @@ class UsersService {
   async delete(id) {
     const deletedUser = await usersRepo.delete(id);
     if (!deletedUser) {
-      throw new AppError('Usuario no encontrado', 404);
+      throw createError(ErrorDictionary.USER_NOT_FOUND);
     }
     return deletedUser;
   }

@@ -1,12 +1,12 @@
 import ordersRepo from '../repositories/orders.repo.js';
 import usersRepo from '../repositories/users.repo.js';
-import AppError from '../utils/error.js';
+import {createError, ErrorDictionary} from '../utils/error.js';
 import config from '../config/index.js';
 import { ORDER_STATUS, DELIVERY_PRIORITY } from '../constants/index.js';
 
 export function calculateShippingCost({ isProduction, shipmentValue, apiKey }) {
   if (!apiKey) {
-    throw new AppError('Configuración inválida: falta API Key', 500);
+    throw new createError(ErrorDictionary.MISSING_API_KEY);
   }
 
   if (isProduction) {
@@ -23,7 +23,7 @@ class OrdersService {
   async findById(id) {
     const order = await ordersRepo.findById(id);
     if (!order) {
-      throw new AppError('Pedido no encontrado', 404);
+      throw createError(ErrorDictionary.ORDER_NOT_FOUND);
     }
     return order;
   }
@@ -31,10 +31,10 @@ class OrdersService {
   async create(orderData) {
     const customer = await usersRepo.findById(orderData.customer);
     if (!customer) {
-      throw new AppError('El cliente especificado no existe', 400);
+      throw createError(ErrorDictionary.USER_NOT_FOUND);
     }
     if (!orderData.items || orderData.items.length === 0) {
-      throw new AppError('El pedido debe tener al menos un item', 400);
+      throw createError(ErrorDictionary.INVALID_QUANTITY);
     }
     const itemsTotal = orderData.items.reduce(
       (sum, item) => sum + item.price * item.quantity, 0
@@ -62,7 +62,7 @@ class OrdersService {
   async update(id, orderData) {
     const updatedOrder = await ordersRepo.update(id, orderData);
     if (!updatedOrder) {
-      throw new AppError('Pedido no encontrado', 404);
+      throw createError(ErrorDictionary.ORDER_NOT_FOUND);
     }
     return updatedOrder;
   }
@@ -70,7 +70,7 @@ class OrdersService {
   async delete(id) {
     const deletedOrder = await ordersRepo.delete(id);
     if (!deletedOrder) {
-      throw new AppError('Pedido no encontrado', 404);
+      throw createError(ErrorDictionary.ORDER_NOT_FOUND);
     }
     return deletedOrder;
   }
