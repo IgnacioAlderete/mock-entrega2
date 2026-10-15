@@ -1,53 +1,60 @@
 import { generateMockUsers } from "../mocks/user.mocks.js";
 import usersRepo from "../repositories/users.repo.js";
 import bcrypt from "bcrypt"
-import {createError, ErrorDictionary} from "../utils/errors.js";
 import { MOCKING_PARAMETERS } from "../constants/index.js";
 class MocksService {
-
-     // qty válida: entero entre 1 y MOCKING_PARAMETERS.MAX. Si no se envía, usa DEFAULT.
-  parseQty(qty) {
-    if (qty === undefined) return MOCKING_PARAMETERS.DEFAULT;
-
-    const parsed = typeof qty === "string" && qty.trim() === "" ? NaN : Number(qty);
-
-    if (!Number.isInteger(parsed) || parsed < 1) {
-      throw createError(ErrorDictionary.INVALID_QTY, { details: { received: qty } });
+    getUsers(qty = MOCKING_PARAMETERS.DEFAULT){
+        let parsedQty = Number(qty)
+        if(!Number.isInteger(parsedQty)){
+            throw new Error("qty debe ser un numero")
+        }
+        console.log(MOCKING_PARAMETERS, parsedQty)
+        if(parsedQty > MOCKING_PARAMETERS.MAX){
+            throw new Error(`el maximo de qty es hasta ${ MOCKING_PARAMETERS.MAX}`)
+        }
+        return generateMockUsers(parsedQty)
     }
-    if (parsed > MOCKING_PARAMETERS.MAX) {
-      throw createError(ErrorDictionary.QTY_EXCEEDS_MAX, {
-        details: { received: parsed, max: MOCKING_PARAMETERS.MAX }
-      });
+
+    async seedUsers(qty){
+        let users = this.getUsers(qty)
+        const usersToInsert = await Promise.all(
+            users.map(async (user)=>({
+                ...user,
+                password: await bcrypt.hash(user.password, 10)
+            }))
+        )
+        const usersInserted = await usersRepo.insertMany(usersToInsert)
+        return {
+            inserted: usersInserted.length,
+            users: usersInserted,
+            collection: "user"
+        }
     }
-    return parsed;
-  }
-    getUsers(qty) {
-    const parsedQty = this.parseQty(qty);
 
-    try {
-      return generateMockUsers(parsedQty);
-    } catch (cause) {
-      throw createError(ErrorDictionary.MOCK_GENERATION_FAILED, { cause, details: { reason: cause.message } });
+    async seedOrders(qty, users){
+
+
     }
-  }
 
-    async seedUsers(qty) {
-    const users = this.getUsers(qty);
+    async seedDeliveries(qty, orders){
 
-    try {
-      const usersToInsert = await Promise.all(
-        users.map(async (user) => ({
-          ...user,
-          password: await bcrypt.hash(user.password, 10)
-        }))
-      );
-      const usersInserted = await usersRepo.insertMany(usersToInsert);
-
-      return { inserted: usersInserted.length, users: usersInserted, collection: "users" };
-    } catch (cause) {
-      throw createError(ErrorDictionary.SEED_FAILED, { cause, details: { reason: cause.message } });
     }
-  }
+}
+
+async function seed(){
+    const mockService = new MocksService()
+
+    let usersMocked = await mockService.seedUsers(10)
+    let ordersMocked = await mockService.seedOrders(10, usersMocked)
+    let deliveriesMocked = await mockService.seedDeliveries(10 , ordersMocked)
+
+    return {
+        users: {
+            inserted: usersMocked.inserted
+        },
+        ordersMocked,
+        deliveriesMocked
+    }
 }
 
 export default new MocksService()

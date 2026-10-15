@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import apiRouter from './routes/index.js';
-import {errorHandler} from './middleware/errorHandler.js'
+import {errorHandler} from './middlewares/errorHandler.js'
 import {routeNotFoundHandler} from './middlewares/routeNotFoundHandler.js'
 const app = express();
 
