@@ -1,80 +1,93 @@
-## Manejo de errores (Pre-entrega Módulo 3)
+# ShipNow API
 
-Todos los errores esperados pasan por un solo lugar: `src/middlewares/errorHandler.js`.
-Services y controllers **no arman respuestas de error**: los services lanzan `createError(ErrorDictionary.X)` y los controllers hacen `next(error)`.
+API REST de logística (Node.js + Express + MongoDB) con arquitectura por capas
+(routes → controllers → services → repositories), mocks de datos y manejo
+centralizado de errores.
 
-```
-src/utils/error.js                      # EErrors, ErrorDictionary y createError
-src/middlewares/errorHandler.js         # middleware global (respuesta uniforme)
-src/middlewares/routeNotFoundHandler.js # 404 para rutas inexistentes
-```
+## Logging y monitoreo básico (Winston)
 
-En `app.js` van al final, en este orden: `routeNotFoundHandler` y después `errorHandler`.
-
-### Uso
+El logger centralizado vive en `src/utils/logger.js` y se importa donde haga falta:
 
 ```js
-throw createError(ErrorDictionary.USER_NOT_FOUND);
-throw createError(ErrorDictionary.QTY_EXCEEDS_MAX, { details: { max: 50 } });   // details/cause opcionales
+import logger from '../utils/logger.js';
+
+logger.info('Pedido creado', { orderId });
 ```
 
-### Estructura de la respuesta de error
+### Instalación de dependencias
+
+```bash
+npm install winston winston-daily-rotate-file
+```
+
+### Niveles
+
+De más a menos severo:
+
+| Nivel     | Uso                                                              |
+|-----------|------------------------------------------------------------------|
+| `fatal`   | La app no puede continuar (falla al iniciar, `uncaughtException`) |
+| `error`   | Errores inesperados o 5xx                                        |
+| `warning` | Errores esperados del cliente (4xx) y situaciones anómalas        |
+| `info`    | Eventos normales (servidor iniciado, DB conectada)               |
+| `http`    | Cada request (método, URL, status, duración)                     |
+| `debug`   | Detalle para desarrollo                                          |
+
+Se loguea el nivel configurado y todos los más severos. Ejemplo: con
+`LOG_LEVEL=info` se ven `fatal`, `error`, `warning` e `info`, pero no `http` ni `debug`.
+
+### Configuración (`.env`)
+
+```env
+LOG_LEVEL=debug   # default: debug en desarrollo, info en producción
+LOG_DIR=logs      # carpeta donde se guardan los archivos (default: logs)
+```
+
+Agregá `logs/` a tu `.gitignore`.
+
+### Dónde se guardan los logs
+
+- **Consola**: todos los niveles desde `LOG_LEVEL`, con colores.
+- **`logs/errors-AAAA-MM-DD.log`**: `error` y `fatal` (JSON, una línea por evento, con stack trace).
+- **`logs/fatal-AAAA-MM-DD.log`**: sólo `fatal`.
+
+**Rotación** (`winston-daily-rotate-file`): un archivo nuevo por día, también se
+rota si supera 5 MB, los archivos viejos se comprimen (`.gz`) y se eliminan a los 14 días.
+
+### Integración con el middleware de errores
+
+`src/middlewares/errorHandler.js` registra cada error que llega con `next(err)`:
+
+- errores inesperados o 5xx → `logger.error` (con stack, método, URL y status) → se guardan en archivo.
+- errores de negocio 4xx (ej. `UserNotFound`) → `logger.warning` (sólo consola).
+
+`src/middlewares/httpLogger.js` registra cada request con nivel `http`.
+En `src/server.js` los fallos de arranque, `uncaughtException` y `unhandledRejection` se registran como `fatal`.
+
+### Probar el logger
+
+Levantá el servidor y llamá al endpoint de prueba:
+
+```bash
+curl http://localhost:8080/api/loggerTest
+```
+
+Genera un log de cada nivel (`debug`, `http`, `info`, `warning`, `error`, `fatal`).
+Respuesta:
 
 ```json
 {
-  "status": "error",
-  "error": {
-    "name": "QtyExceedsMax",
-    "code": 6,
-    "message": "La cantidad supera el máximo permitido",
-    "details": { "received": 51, "max": 50 }
-  }
+  "status": "success",
+  "message": "Se generaron logs de todos los niveles",
+  "levels": ["debug", "http", "info", "warning", "error", "fatal"],
+  "activeLevel": "debug"
 }
 ```
 
-- `name`: nombre del error (entrada del diccionario). `code`: categoría (`EErrors`). El HTTP status sale de la entrada del diccionario.
-- `details` es opcional.
-- El handler también traduce `CastError` (ID inválido), JSON mal formado, `ValidationError` de Mongoose y claves duplicadas (11000).
-- Un error inesperado (bug) responde `500 InternalError` y, en `NODE_ENV=production`, no expone el mensaje interno.
+Para comprobar el resto de la integración:
 
-| HTTP | Errores del diccionario |
-|------|-------------------------|
-| 400 | `InvalidId`, `InvalidJson`, `InvalidStatus`, `InvalidQuantity`, `InvalidQty`, `QtyExceedsMax`, `MissingFields`, `ValidationError`, `InvalidDriverRole` |
-| 403 | `AdminCreationForbidden` |
-| 404 | `UserNotFound`, `OrderNotFound`, `DeliverNotFound`, `DriverNotFound`, `RouteNotFound` |
-| 409 | `UserAlreadyExists`, `DuplicateKey` |
-| 500 | `MockGenerationFailed`, `SeedFailed`, `MissingApiKey`, `InternalError` |
-
-### Mocks: validación de `qty`
-
-`qty` debe ser un entero entre **1 y 50** (`MOCKING_PARAMETERS.MAX`). Si no se envía, usa 10.
-Fallas posibles: cantidad inválida, cantidad sobre el máximo, error al generar datos (`MockGenerationFailed`) y error al insertar en la base (`SeedFailed`).
-
-### Cómo probar los casos inválidos
-
-Con el servidor levantado (puerto por defecto 8080):
-
-```bash
-# Mocks
-curl "localhost:8080/api/mocks/users?qty=5"            # 200
-curl "localhost:8080/api/mocks/users"                  # 200 (10 usuarios)
-curl "localhost:8080/api/mocks/users?qty=0"            # 400 InvalidQty
-curl "localhost:8080/api/mocks/users?qty=-3"           # 400 InvalidQty
-curl "localhost:8080/api/mocks/users?qty=abc"          # 400 InvalidQty
-curl "localhost:8080/api/mocks/users?qty=2.5"          # 400 InvalidQty
-curl "localhost:8080/api/mocks/users?qty=51"           # 400 QtyExceedsMax
-curl -X POST "localhost:8080/api/mocks/seed?qty=3"     # 201 { inserted: 3 }
-curl -X POST "localhost:8080/api/mocks/seed?qty=0"     # 400 InvalidQty
-# SeedFailed (500): apagar MongoDB (o forzar un email duplicado) y repetir el POST /seed
-
-# Resto de la API
-curl localhost:8080/api/nada                                              # 404 RouteNotFound
-curl localhost:8080/api/users/abc                                         # 400 InvalidId
-curl localhost:8080/api/users/64b000000000000000000000                    # 404 UserNotFound
-curl -X POST localhost:8080/api/users -H "Content-Type: application/json" -d '{'                                  # 400 InvalidJson
-curl -X POST localhost:8080/api/users -H "Content-Type: application/json" -d '{"role":"admin","email":"a@a.com"}' # 403 AdminCreationForbidden
-curl -X POST localhost:8080/api/users -H "Content-Type: application/json" -d '{"firstName":"Ana"}'                # 400 MissingFields
-curl -X POST localhost:8080/api/users -H "Content-Type: application/json" -d '{"email":"a@a.com"}'                # 400 ValidationError (campos requeridos)
-curl -X PUT  localhost:8080/api/orders/<id> -H "Content-Type: application/json" -d '{"status":"volando"}'         # 400 InvalidStatus
-curl -X POST localhost:8080/api/deliveries -H "Content-Type: application/json" -d '{"order":"64b000000000000000000000"}'  # 404 OrderNotFound
-```
+1. En la consola deberías ver los 6 niveles (según `LOG_LEVEL`) más el log `http` del request.
+2. Revisá `logs/errors-<fecha>.log` (debe contener `error` y `fatal`) y `logs/fatal-<fecha>.log` (sólo `fatal`).
+3. Provocá un 404 de negocio: `curl http://localhost:8080/api/users/000000000000000000000000` → aparece un `warning`.
+4. Provocá un error de ruta: `curl http://localhost:8080/api/noexiste` → `warning` `RouteNotFound`.
+5. Cambiá `LOG_LEVEL=info`, reiniciá y repetí: ya no deberían aparecer `http` ni `debug`.
