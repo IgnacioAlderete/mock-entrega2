@@ -19,7 +19,8 @@ const config = {
   mongoUri: process.env.MONGODB_URI,
   jwtSecret: process.env.JWT_SECRET,
   nodeEnv: process.env.NODE_ENV || 'development',
-  logLevel: process.env.LOG_LEVEL || 'debug'
+  logLevel: process.env.LOG_LEVEL || 'debug',
+  logDir: process.env.LOG_DIR || 'logs'
 };
 
 export default config;

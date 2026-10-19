@@ -6,7 +6,7 @@ import { ORDER_STATUS, DELIVERY_PRIORITY } from '../constants/index.js';
 
 export function calculateShippingCost({ isProduction, shipmentValue, apiKey }) {
   if (!apiKey) {
-    throw new createError(ErrorDictionary.MISSING_API_KEY);
+    throw createError(ErrorDictionary.MISSING_API_KEY);
   }
 
   if (isProduction) {
@@ -33,7 +33,7 @@ class OrdersService {
     if (!customer) {
       throw createError(ErrorDictionary.USER_NOT_FOUND);
     }
-    if (!orderData.items || orderData.items.length === 0) {
+    if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
       throw createError(ErrorDictionary.INVALID_QUANTITY);
     }
     const itemsTotal = orderData.items.reduce(
@@ -60,6 +60,11 @@ class OrdersService {
   }
 
   async update(id, orderData) {
+    if (orderData.status !== undefined && !Object.values(ORDER_STATUS).includes(orderData.status)) {
+      throw createError(ErrorDictionary.INVALID_STATUS, {
+        details: { received: orderData.status, allowed: Object.values(ORDER_STATUS) }
+      });
+    }
     const updatedOrder = await ordersRepo.update(id, orderData);
     if (!updatedOrder) {
       throw createError(ErrorDictionary.ORDER_NOT_FOUND);

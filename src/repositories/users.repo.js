@@ -17,7 +17,7 @@ class UsersRepository {
   }
 
   async update(id, userData) {
-    return User.findByIdAndUpdate(id, userData, { new: true });
+    return User.findByIdAndUpdate(id, userData, { new: true, runValidators: true });
   }
 
   async delete(id) {
