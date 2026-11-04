@@ -1,92 +1,66 @@
-# Documentación de la API (Swagger / OpenAPI)
+## Testing
 
-La API está documentada con **swagger-jsdoc** y **swagger-ui-express**. La documentación se escribe en comentarios `@openapi` y se publica como interfaz interactiva donde se pueden probar los endpoints.
+Tests funcionales de los endpoints de ShipNow: levantan la app de Express en memoria (sin abrir puertos) y le hacen peticiones HTTP reales contra una base de datos de testing.
 
-## Ruta de Swagger
+### Herramientas
 
-Con el servidor levantado, la documentación está en:
+- [Mocha](https://mochajs.org/): organiza y ejecuta los tests.
+- [Chai](https://www.chaijs.com/): validaciones (`expect`).
+- [Supertest](https://github.com/ladjs/supertest): peticiones HTTP a la app, importada desde `src/app.js` (el `listen` y la conexión a la base viven aparte, en `src/server.js`).
+- [cross-env](https://github.com/kentcdodds/cross-env): define `NODE_ENV=test` en cualquier sistema operativo.
 
-```
-http://localhost:8080/api/docs
-```
+### Cómo ejecutarlos
 
-> Ajustá el puerto y la ruta (`/api/docs`) según tu configuración.
-
-### Configuración de referencia
-
-```javascript
-import swaggerJSDoc from 'swagger-jsdoc';
-import swaggerUiExpress from 'swagger-ui-express';
-
-const swaggerOptions = {
-  definition: {
-    openapi: '3.0.1',
-    info: {
-      title: 'Documentación de la API',
-      description: 'API de pedidos, envíos, usuarios, mocks y logger'
-    }
-  },
-  apis: ['./src/docs/*.js'] // carpeta donde están los archivos *.swagger.js
-};
-
-const specs = swaggerJSDoc(swaggerOptions);
-app.use('/api/docs', swaggerUiExpress.serve, swaggerUiExpress.setup(specs));
+```bash
+npm install
+npm test
 ```
 
-## Cómo levantar el servidor
+No hace falta levantar el servidor: `npm test` ejecuta todo con `NODE_ENV=test`.
 
-1. Instalar dependencias:
+### Base de datos y variables de entorno
 
-   ```bash
-   npm install
-   ```
+El entorno de testing está separado del de desarrollo. Con `NODE_ENV=test` la app lee el archivo **`.env.test`** (en vez de `.env`), que apunta a una base de datos propia y descartable.
 
-2. Configurar las variables de entorno (por ejemplo `PORT` y la URI de MongoDB) en el archivo `.env`.
+| Variable | Descripción | Valor en `.env.test` |
+| --- | --- | --- |
+| `MONGODB_URI` | Base de datos de testing. Su nombre **tiene que incluir "test"** | `mongodb://127.0.0.1:27017/shipnow_test` |
+| `JWT_SECRET` | Secreto de prueba (no usar el real) | `secreto_solo_para_tests` |
+| `LOG_LEVEL` | Nivel de logs durante los tests | `fatal` (salida limpia) |
+| `LOG_DIR` | Carpeta de logs de testing | `logs/test` |
 
-3. Iniciar el servidor:
+Se necesita una instancia de MongoDB accesible (local o en Atlas). Los tests **borran las colecciones** de esa base antes y después de correr, por eso se niegan a ejecutarse si el nombre de la base no contiene "test" o si `NODE_ENV` no es `test`. Nunca apuntes `.env.test` a la base de desarrollo o producción.
 
-   ```bash
-   npm start
-   ```
+### Organización
 
-   o, en modo desarrollo:
+```
+tests/
+├── setup.js            # conecta a la base de test y la limpia al terminar
+├── helpers/
+│   ├── request.js      # supertest(app)
+│   ├── factories.js    # crea usuarios y pedidos de prueba vía API
+│   ├── db.js           # limpieza y consultas directas a la base
+│   └── expectError.js  # valida status + formato de error del ErrorDictionary
+├── users.test.js
+├── orders.test.js
+├── mocks.test.js
+├── logger.test.js
+├── swagger.test.js
+└── routes.test.js
+```
 
-   ```bash
-   npm run dev
-   ```
+Cada test crea sus propios datos (por ejemplo, un usuario válido antes de probar un pedido) y la base se vacía con `beforeEach`, así que ningún test depende del estado previo ni del orden de ejecución.
 
-4. Abrir `http://localhost:8080/api/docs` en el navegador.
+### Qué cubren
 
-Se necesita tener MongoDB accesible, porque los endpoints de Orders, Deliveries y el `POST /seed` leen y escriben en la base de datos.
+| Módulo | Endpoints | Casos exitosos | Errores validados |
+| --- | --- | --- | --- |
+| Usuarios | `/api/users` | crear, listar (vacío y con datos), buscar por ID, actualizar, eliminar | JSON mal formado, campos faltantes, admin prohibido, usuario duplicado, ID inválido, usuario inexistente |
+| Pedidos | `/api/orders` | crear (con y sin valores por defecto), listar, buscar por ID (cliente populado), actualizar, eliminar | JSON mal formado, datos incompletos, items vacíos, cantidad/precio/prioridad inválidos, ID inválido, cliente o pedido inexistente |
+| Estados | `PUT /api/orders/:id` | flujo `created → assigned → picked_up → in_transit → delivered` y cancelación | estado inválido |
+| Mocks | `/api/mocks/users`, `/api/mocks/seed` | generar sin guardar, insertar con contraseñas hasheadas, cantidad por defecto | `qty` inválida (`abc`, `0`, `-5`, `1.5`) y `qty` sobre el máximo |
+| Logger | `/api/logger` | logs de todos los niveles, `levels` y `activeLevel` | — |
+| Swagger | `/api/docs` | interfaz, redirección, especificación con los endpoints documentados | — |
+| Rutas | cualquier ruta inexistente | — | 404 `RouteNotFound` con `details` (método y ruta) |
 
-## Módulos documentados
-
-| Módulo | Archivo | Endpoints |
-|---|---|---|
-| Orders | `order.swagger.js` | `GET /api/orders`, `GET /api/orders/{id}`, `POST /api/orders`, `PUT /api/orders/{id}`, `DELETE /api/orders/{id}` |
-| Deliveries | `delivery.swagger.js` | `GET /api/deliveries`, `GET /api/deliveries/{id}`, `POST /api/deliveries`, `PUT /api/deliveries/{id}`, `DELETE /api/deliveries/{id}` |
-| Logger | `logger.swagger.js` | `GET /api/logger` |
-| Mocks | `mock.swagger.js` | `GET /api/mocks/users`, `POST /api/mocks/seed` |
-| Users | _pendiente_ | — |
-
-Los schemas comunes (`Order`, `OrderItem`, `Delivery`, `MockUser`, `Error`, etc.) están definidos en `components/schemas` dentro de cada archivo. El schema `Error` se comparte entre módulos, así que debe estar definido en al menos un archivo que `swagger-jsdoc` procese.
-
-## Aclaraciones para probar los endpoints
-
-- **Probar desde Swagger UI:** abrir un endpoint, hacer clic en **Try it out**, completar los datos y presionar **Execute**.
-- **Orders:**
-  - `customer` es el ID de un usuario existente (ObjectId de MongoDB).
-  - `items` debe tener al menos un elemento, con `name`, `quantity` (mínimo 1) y `price` (no negativo).
-  - `deliveryAddress` es obligatorio.
-  - Estados válidos de `status`: `created`, `assigned`, `picked_up`, `in_transit`, `delivered`, `cancelled`.
-- **Deliveries:**
-  - `order` es obligatorio y debe ser el ID de un pedido existente.
-  - `driver` es opcional (ID de un usuario).
-  - Estados válidos de `status`: `pending`, `assigned`, `in_transit`, `delivered`.
-- **Prioridad:** tanto en pedidos como en envíos, `priority` acepta `low`, `normal` o `high`.
-- **Mocks:**
-  - `GET /api/mocks/users` genera usuarios falsos en memoria y no los guarda.
-  - `POST /api/mocks/seed` genera usuarios, hashea sus contraseñas con bcrypt y los inserta en la colección `users`.
-  - `qty` debe ser un entero entre 1 y el máximo configurado. Si se omite, se usa el valor por defecto. Un valor inválido o mayor al máximo devuelve error 400.
-- **Logger:** `GET /api/logger` genera un log por cada nivel (`debug`, `http`, `info`, `warning`, `error`, `fatal`). Lo que se ve en consola o archivo depende del nivel activo, que la respuesta devuelve en `activeLevel`.
-- **IDs inválidos o inexistentes:** los endpoints con `{id}` devuelven 404 si el recurso no existe.
+En cada error se valida el **status HTTP** y el formato definido en el módulo de errores: `{ status: "error", error: { name, code, message } }`.

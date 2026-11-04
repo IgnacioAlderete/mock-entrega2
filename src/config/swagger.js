@@ -6,7 +6,7 @@ export const options = {
         info:{
             title: "ShipNow",
             version: "1.0.0",
-            descripcion: "Documentación de la API"
+            description: "Documentación de la API"
         }
     },
     servers:[{url:"http://localhost:8080"}],

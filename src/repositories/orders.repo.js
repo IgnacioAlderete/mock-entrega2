@@ -17,8 +17,8 @@ class OrdersRepository {
   }
 
   async update(id, orderData) {
-    return Order.findByIdAndUpdate(id, orderData, { new: true, runValidators: true });
-  }
+  return Order.findByIdAndUpdate(id, orderData, { returnDocument: 'after', runValidators: true });
+}
 
   async delete(id) {
     return Order.findByIdAndDelete(id);

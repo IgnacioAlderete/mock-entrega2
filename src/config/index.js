@@ -1,6 +1,9 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+// Entorno separado: con NODE_ENV=test se lee .env.test (base de datos y variables
+// propias de testing); en cualquier otro caso se lee .env como siempre.
+const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
+dotenv.config({ path: envFile, quiet: true });
 
 const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
 
@@ -9,7 +12,7 @@ requiredEnvVars.forEach((envVar) => {
   if (!process.env[envVar]) {
     throw new Error(
       `Falta configurar la variable de entorno: ${envVar}\n` +
-      `Revisá el archivo .env (copiado desde .env.example)`
+      `Revisá el archivo ${envFile} (copiado desde .env.example)`
     );
   }
 });
