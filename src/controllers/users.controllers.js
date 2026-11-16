@@ -1,5 +1,27 @@
 import usersService from '../services/users.service.js';
 class UsersController {
+
+  async uploadDocument (req, res, next){
+    try {
+      const updatedUser = await usersService.addDocument(
+        req.params.id,
+        req.file,
+        req.body.type
+      )
+        res.status(201).json({ status: 'success', payload: result })
+    } catch (error) {
+      next(error)
+    }
+  }
+  async getDocuments(req, res, next) {
+    try {
+      const documents = await usersService.getDocuments(req.params.id)
+      res.status(200).json({ ok: true, data: documents })
+  } catch (error) {
+      next(error)
+  }
+}
+
   async findAll(req, res, next) {
     try {
       const users = await usersService.findAll();

@@ -1,4 +1,21 @@
 import mongoose from 'mongoose';
+import { DOCUMENT_TYPES } from '../constants/index.js';
+
+
+const documentSchema = new mongoose.Schema({
+  originalName: { type: String, required: true },
+  fileName:     { type: String, required: true },
+  path:         { type: String, required: true },
+  mimeType:     { type: String, required: true },
+  size:         { type: Number, required: true },
+  type: {
+  type: String,
+  enum: [DOCUMENT_TYPES.USER_DOCUMENT, DOCUMENT_TYPES.DRIVER_LICENSE],
+  required: true
+},
+  uploadedAt:   { type: Date, default: Date.now }
+});
+
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
@@ -38,10 +55,14 @@ const userSchema = new mongoose.Schema({
   isAvailable: {
     type: Boolean,
     default: true
+  },
+  documents: {
+    type: [documentSchema],
+    default: []
   }
-}, {
-  timestamps: true
-});
+}, 
+
+{timestamps: true});
 
 const User = mongoose.model('User', userSchema);
 

@@ -1,5 +1,32 @@
 import ordersService from '../services/orders.service.js';
 class OrdersController {
+    async uploadReceipt(req, res, next) {
+    try {
+      const order = await ordersService.uploadReceipt(
+        req.params.id,
+        req.file,
+        req.body.type
+      )
+
+      res.status(201).json({
+        ok: true,
+        message: 'Comprobante subido correctamente',
+        data: order
+      })
+    } catch (error) {
+      next(error)
+    }
+  
+}
+
+  async getReceipts(req, res, next) {
+    try {
+      const receipts = await ordersService.getReceipts(req.params.id)
+      res.status(200).json({ ok: true, data: receipts })
+  } catch (error) {
+      next(error)
+  }
+}
   async findAll(req, res, next) {
     try {
       const orders = await ordersService.findAll();

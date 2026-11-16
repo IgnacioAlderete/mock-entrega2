@@ -1,5 +1,16 @@
 import User from '../models/user.model.js';
 class UsersRepository {
+  async addDocument(userId, document) {
+  return User.findByIdAndUpdate(
+    userId,
+    { $push: { documents: document } },
+    { returnDocument: 'after', runValidators: true }
+  );
+}
+  // users.repository.js
+async findDocuments(userId) {
+  return UserModel.findById(userId).select('documents').lean()
+}
   async findAll() {
     return User.find();
   }
@@ -17,7 +28,7 @@ class UsersRepository {
   }
 
   async update(id, userData) {
-    return User.findByIdAndUpdate(id, userData, { new: true, runValidators: true });
+    return User.findByIdAndUpdate(id, userData, { returnDocument: 'after', runValidators: true });
   }
 
   async delete(id) {

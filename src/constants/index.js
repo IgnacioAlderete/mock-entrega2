@@ -48,3 +48,9 @@ export const ORDER_PRIORITY = Object.freeze({
     HIGH: 'high'
 
 });
+
+export const RECEIPT_TYPES = Object.freeze({
+  PAYMENT: 'payment',
+  DELIVERY: 'delivery',
+  REFUND: 'refund'
+});

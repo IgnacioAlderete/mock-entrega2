@@ -1,7 +1,132 @@
 import { Router } from 'express';
 import usersController from '../controllers/users.controllers.js';
-const router = Router();
+import {uploadDocument} from '../middlewares/upload.middleware.js'
 
+const router = Router();
+router.post(
+    "/:id/documents",
+    uploadDocument.single("document"),
+    usersController.uploadDocument
+)
+
+/**
+ * @openapi
+ * /api/users/{id}/documents:
+ *   post:
+ *     summary: Subir un documento a un usuario
+ *     description: >
+ *       Carga un documento y lo asocia al usuario indicado.
+ *       Acepta PDF, JPG y PNG de hasta 5 MB.
+ *       La licencia de conducir solo puede subirla un usuario con rol driver.
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del usuario
+ *         example: 6ad6b1eb0f2bce6b04fb30db
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [document, type]
+ *             properties:
+ *               document:
+ *                 type: string
+ *                 format: binary
+ *                 description: Archivo (PDF, JPG o PNG, máx. 5 MB)
+ *               type:
+ *                 type: string
+ *                 enum: [user_document, driver_license]
+ *                 description: Tipo de documento
+ *                 example: user_document
+ *     responses:
+ *       201:
+ *         description: Documento subido correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 payload:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Archivo faltante, formato no permitido o tipo de documento inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               FileRequired:
+ *                 summary: No se envió archivo
+ *                 value:
+ *                   status: error
+ *                   error:
+ *                     name: FileRequired
+ *                     code: 9
+ *                     message: Se requiere un archivo para subir
+ *               InvalidFileType:
+ *                 summary: Formato no permitido
+ *                 value:
+ *                   status: error
+ *                   error:
+ *                     name: InvalidFileType
+ *                     code: 11
+ *                     message: Tipo de archivo no permitido
+ *               InvalidDocumentType:
+ *                 summary: Tipo de documento inválido
+ *                 value:
+ *                   status: error
+ *                   error:
+ *                     name: InvalidDocumentType
+ *                     code: 10
+ *                     message: Tipo de documento inválido
+ *       403:
+ *         description: El rol del usuario no puede subir este tipo de documento
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: DocumentNotAllowedForRole
+ *                 code: 6
+ *                 message: Tu rol no puede subir este tipo de documento
+ *       404:
+ *         description: Usuario no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: UserNotFound
+ *                 code: 4
+ *                 message: Usuario no encontrado
+ *       413:
+ *         description: El archivo supera el tamaño máximo (5 MB)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: FileTooLarge
+ *                 code: 12
+ *                 message: El archivo supera el tamaño máximo permitido (5 MB)
+ */
+
+  
 
 /**
  * @openapi
@@ -84,6 +209,125 @@ const router = Router();
  *                   items:
  *                     $ref: '#/components/schemas/User'
  */
+
+// users.routes.js
+/**
+ * @openapi
+ * /api/users/{id}/documents:
+ *   post:
+ *     summary: Subir un documento a un usuario
+ *     description: >
+ *       Carga un documento y lo asocia al usuario indicado.
+ *       Acepta PDF, JPG y PNG de hasta 5 MB.
+ *       La licencia de conducir solo puede subirla un usuario con rol driver.
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del usuario
+ *         example: 6ad6b1eb0f2bce6b04fb30db
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [document, type]
+ *             properties:
+ *               document:
+ *                 type: string
+ *                 format: binary
+ *                 description: Archivo (PDF, JPG o PNG, máx. 5 MB)
+ *               type:
+ *                 type: string
+ *                 enum: [user_document, driver_license]
+ *                 description: Tipo de documento
+ *                 example: user_document
+ *     responses:
+ *       201:
+ *         description: Documento subido correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 payload:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Archivo faltante, formato no permitido o tipo de documento inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               FileRequired:
+ *                 summary: No se envió archivo
+ *                 value:
+ *                   status: error
+ *                   error:
+ *                     name: FileRequired
+ *                     code: 9
+ *                     message: Se requiere un archivo para subir
+ *               InvalidFileType:
+ *                 summary: Formato no permitido
+ *                 value:
+ *                   status: error
+ *                   error:
+ *                     name: InvalidFileType
+ *                     code: 11
+ *                     message: Tipo de archivo no permitido
+ *               InvalidDocumentType:
+ *                 summary: Tipo de documento inválido
+ *                 value:
+ *                   status: error
+ *                   error:
+ *                     name: InvalidDocumentType
+ *                     code: 10
+ *                     message: Tipo de documento inválido
+ *       403:
+ *         description: El rol del usuario no puede subir este tipo de documento
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: DocumentNotAllowedForRole
+ *                 code: 6
+ *                 message: Tu rol no puede subir este tipo de documento
+ *       404:
+ *         description: Usuario no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: UserNotFound
+ *                 code: 4
+ *                 message: Usuario no encontrado
+ *       413:
+ *         description: El archivo supera el tamaño máximo (5 MB)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: FileTooLarge
+ *                 code: 12
+ *                 message: El archivo supera el tamaño máximo permitido (5 MB)
+ */
+router.get('/:id/documents', usersController.getDocuments)
 
 router.get('/', usersController.findAll);
 /**

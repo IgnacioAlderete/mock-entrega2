@@ -1,6 +1,130 @@
 import { Router } from 'express';
 import ordersController from '../controllers/orders.controllers.js';
+import { uploadReceipt } from '../middlewares/upload.middleware.js'
+
 const router = Router();
+
+/**
+ * @openapi
+ * /api/orders/{id}/receipts:
+ *   post:
+ *     summary: Subir un comprobante a un pedido
+ *     description: >
+ *       Carga un comprobante (pago, entrega o reembolso) y lo asocia al pedido.
+ *       Acepta PDF, JPG, PNG y WEBP de hasta 5 MB.
+ *       No se pueden subir comprobantes a pedidos cancelados.
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del pedido
+ *         example: 66f1c2a9e4b0a1d2c3e4f5a6
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [receipt, type]
+ *             properties:
+ *               receipt:
+ *                 type: string
+ *                 format: binary
+ *                 description: Archivo (PDF, JPG, PNG o WEBP, máx. 5 MB)
+ *               type:
+ *                 type: string
+ *                 enum: [payment, delivery, refund]
+ *                 example: payment
+ *     responses:
+ *       201:
+ *         description: Comprobante subido correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 payload:
+ *                   $ref: '#/components/schemas/Order'
+ *       400:
+ *         description: Archivo faltante, formato no permitido o tipo de comprobante inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               FileRequired:
+ *                 summary: No se envió archivo
+ *                 value:
+ *                   status: error
+ *                   error:
+ *                     name: FileRequired
+ *                     code: 9
+ *                     message: Se requiere un archivo para subir
+ *               InvalidFileType:
+ *                 summary: Formato no permitido
+ *                 value:
+ *                   status: error
+ *                   error:
+ *                     name: InvalidFileType
+ *                     code: 11
+ *                     message: Tipo de archivo no permitido
+ *               InvalidReceiptType:
+ *                 summary: Tipo de comprobante inválido
+ *                 value:
+ *                   status: error
+ *                   error:
+ *                     name: InvalidReceiptType
+ *                     code: 14
+ *                     message: Tipo de comprobante inválido
+ *       404:
+ *         description: Pedido no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: OrderNotFound
+ *                 code: 4
+ *                 message: Pedido no encontrado
+ *       409:
+ *         description: El pedido está cancelado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: OrderCancelled
+ *                 code: 6
+ *                 message: No se pueden subir comprobantes a un pedido cancelado
+ *       413:
+ *         description: El archivo supera el tamaño máximo (5 MB)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: FileTooLarge
+ *                 code: 12
+ *                 message: El archivo supera el tamaño máximo permitido (5 MB)
+ */
+
+router.post(
+  '/:id/receipts',
+  uploadReceipt.single('receipt'),   // el campo del form-data se llama "receipt"
+  ordersController.uploadReceipt
+)
 
 /**
  * @openapi
@@ -8,6 +132,49 @@ const router = Router();
  *   name: Orders
  *   description: Gestión de pedidos
  */
+
+/**
+ * @openapi
+ * /api/orders/{id}/receipts:
+ *   get:
+ *     summary: Listar los comprobantes de un pedido
+ *     tags: [Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del pedido
+ *     responses:
+ *       200:
+ *         description: Lista de comprobantes del pedido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 payload:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Receipt'
+ *       404:
+ *         description: Pedido no encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: error
+ *               error:
+ *                 name: OrderNotFound
+ *                 code: 4
+ *                 message: Pedido no encontrado
+ */
+router.get('/:id/receipts', ordersController.getReceipts)
 
 router.get('/', ordersController.findAll);
 /**

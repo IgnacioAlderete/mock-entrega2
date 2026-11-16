@@ -20,7 +20,13 @@ export const EErrors = {
   RESOURCE_ALREADY_EXISTS:5,
   INVALID_RESOURCE_PROPERTY:6,
   MISSING_API_KEY:7,
-  MOCK_GENERATION_ERROR: 8
+  MOCK_GENERATION_ERROR: 8,
+  FILE_REQUIRED: 9,
+  INVALID_DOCUMENT_TYPE:10,
+  INVALID_FILE_TYPE: 11,
+  FILE_TOO_LARGE: 12,
+  UNEXPECTED_FILE_FIELD: 13,
+  INVALID_RECEIPT_TYPE: 14
 
 }
 export const ErrorDictionary = {
@@ -53,8 +59,23 @@ export const ErrorDictionary = {
 
   // 500
   MISSING_API_KEY:    { name: "MissingApiKey",    code: EErrors.MISSING_API_KEY, status: 500, message: "Configuración inválida: falta API key" },
-  INTERNAL_ERROR:     { name: "InternalError",    code: 0, status: 500, message: "Error interno del servidor" }
+  INTERNAL_ERROR:     { name: "InternalError",    code: 0, status: 500, message: "Error interno del servidor" },
+
+
+  // multer / archivos
+  FILE_REQUIRED:         { name: "FileRequired",        code: EErrors.FILE_REQUIRED,          status: 400, message: "Se requiere un archivo para subir" },
+  INVALID_DOCUMENT_TYPE: { name: "InvalidDocumentType", code: EErrors.INVALID_DOCUMENT_TYPE,  status: 400, message: "Tipo de documento inválido" },
+  INVALID_RECEIPT_TYPE:  { name: "InvalidReceiptType",  code: EErrors.INVALID_RECEIPT_TYPE,  status: 400, message: "Tipo de comprobante inválido" },
+  INVALID_FILE_TYPE:     { name: "InvalidFileType",     code: EErrors.INVALID_FILE_TYPE,     status: 400, message: "Tipo de archivo no permitido" },
+  FILE_TOO_LARGE:        { name: "FileTooLarge",        code: EErrors.FILE_TOO_LARGE,        status: 413, message: "El archivo supera el tamaño máximo permitido (5 MB)" },
+  UNEXPECTED_FILE_FIELD: { name: "UnexpectedFileField", code: EErrors.UNEXPECTED_FILE_FIELD, status: 400, message: "Campo de archivo inesperado o cantidad excedida" },
+  ORDER_CANCELLED:       { name: "OrderCancelled",      code: EErrors.INVALID_RESOURCE_PROPERTY, status: 409, message: "No se pueden subir comprobantes a un pedido cancelado" },
+  DOCUMENT_NOT_ALLOWED_FOR_ROLE: { name: "DocumentNotAllowedForRole", code: EErrors.INVALID_RESOURCE_PROPERTY, status: 403, message: "Tu rol no puede subir este tipo de documento" }
+
 };
+
+
+
 
 // `extra` es opcional: { cause, details }. Compatible con createError(ErrorDictionary.X).
 export const createError = ({ name, code, status, message, cause, details } = {}, extra = {}) => {

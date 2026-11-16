@@ -1,4 +1,16 @@
 import mongoose from 'mongoose';
+import { RECEIPT_TYPES } from '../constants/index.js';
+
+const receiptSchema = new mongoose.Schema({
+  originalName: { type: String, required: true },
+  fileName:     { type: String, required: true },
+  path:         { type: String, required: true },
+  mimeType:     { type: String, required: true },
+  size:         { type: Number, required: true },
+  type: { type: String, enum: Object.values(RECEIPT_TYPES), required: true },
+  uploadedAt:   { type: Date, default: Date.now }
+});
+
 const orderItemSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -59,10 +71,10 @@ const orderSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Delivery',
     default: null
-  }
-}, {
-  timestamps: true
-});
+  },
+    receipts: { type: [receiptSchema], default: [] }
+}, { timestamps: true });
+
 
 const Order = mongoose.model('Order', orderSchema);
 

@@ -1,5 +1,18 @@
 import Order from '../models/order.model.js';
 class OrdersRepository {
+  async addReceipt(orderId, receipt) {
+  return Order.findByIdAndUpdate(
+    orderId,
+    { $push: { receipts: receipt } },
+    { returnDocument: 'after', runValidators: true }
+  );
+}
+
+// orders.repository.js
+async findReceipts(orderId) {
+  return Order.findById(orderId).select('receipts').lean()
+}
+
   async findAll(filter = {}) {
     return Order.find(filter)
       .populate('customer', 'firstName lastName email')

@@ -1,8 +1,14 @@
+import fs from 'fs/promises'
+
 import ordersRepo from '../repositories/orders.repo.js';
 import usersRepo from '../repositories/users.repo.js';
 import {createError, ErrorDictionary} from '../utils/error.js';
 import config from '../config/index.js';
-import { ORDER_STATUS, DELIVERY_PRIORITY } from '../constants/index.js';
+import { logger } from '../utils/logger.js'
+
+import { ORDER_STATUS, DELIVERY_PRIORITY,RECEIPT_KEYS } from '../constants/index.js';
+
+
 
 export function calculateShippingCost({ isProduction, shipmentValue, apiKey }) {
   if (!apiKey) {
@@ -15,7 +21,59 @@ export function calculateShippingCost({ isProduction, shipmentValue, apiKey }) {
 
   return 10;
 }
+
+
+
 class OrdersService {
+  async uploadReceipt(orderId, file, type) {
+    // 1. Validar datos requeridos
+    if (!file) throw createError(ErrorDictionary.FILE_REQUIRED)
+
+    try {
+      if (!Object.values(RECEIPT_TYPES).includes(type)) {
+        throw createError(ErrorDictionary.INVALID_RECEIPT_TYPE)
+      }
+
+      // 2. Verificar que el pedido exista
+      const order = await ordersRepo.findById(orderId)
+      if (!order) throw createError(ErrorDictionary.ORDER_NOT_FOUND)
+
+      // 3. Regla de negocio: no se suben comprobantes a pedidos cancelados
+      if (order.status === 'cancelled') {
+        throw createError(ErrorDictionary.ORDER_CANCELLED)
+      }
+
+      // 4. Armar los metadatos y asociarlos al pedido
+      const receipt = {
+        originalName: file.originalname,
+        fileName: file.filename,
+        path: file.path,
+        mimeType: file.mimetype,
+        size: file.size,
+        type,
+        uploadedAt: new Date()
+      }
+
+      const updatedOrder = await ordersRepo.addReceipt(orderId, receipt)
+
+      logger.info(`Comprobante subido: pedido ${orderId}, tipo ${type}, archivo ${file.filename}`)
+      return updatedOrder
+
+    } catch (error) {
+      // Si algo falla, borramos el archivo para no dejarlo huérfano en disco
+      await fs.unlink(file.path).catch(() => {})
+      throw error
+    }
+  }
+
+  // orders.service.js
+  async getReceipts(orderId) {
+    const order = await ordersRepo.findReceipts(orderId)
+    if (!order) throw createError(ErrorDictionary.ORDER_NOT_FOUND)
+
+   return order.receipts.map(({ path, ...receipt }) => receipt)
+}
+
   async findAll(filter = {}) {
     return ordersRepo.findAll(filter);
   }
