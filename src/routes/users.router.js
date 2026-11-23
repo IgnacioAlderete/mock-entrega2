@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import usersController from '../controllers/users.controllers.js';
-import {uploadDocument} from '../middlewares/upload.middleware.js'
+import {uploadDocument} from '../middlewares/upload.Middleware.js'
 
 const router = Router();
 router.post(

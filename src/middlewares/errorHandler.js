@@ -1,5 +1,11 @@
 import { createError, ErrorDictionary } from "../utils/error.js";
 import logger from "../utils/logger.js";
+import multer from 'multer'
+
+const MULTER_ERROR_MAP = {
+  LIMIT_FILE_SIZE: ErrorDictionary.FILE_TOO_LARGE,
+  LIMIT_UNEXPECTED_FILE: ErrorDictionary.UNEXPECTED_FILE_FIELD
+}
 
 // Convierte errores de librerías (Mongoose, body-parser) en errores del diccionario.
 const normalizeError = (err) => {
@@ -33,6 +39,8 @@ const normalizeError = (err) => {
 // Formato: { status: "error", error: { name, code, message, details? } }
 // eslint-disable-next-line no-unused-vars
 export const errorHandler = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    err = createError(MULTER_ERROR_MAP[err.code] || ErrorDictionary.INVALID_FILE_TYPE)}
   const error = normalizeError(err);
   const isAppError = Boolean(error?.isAppError);
 

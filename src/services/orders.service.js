@@ -4,9 +4,9 @@ import ordersRepo from '../repositories/orders.repo.js';
 import usersRepo from '../repositories/users.repo.js';
 import {createError, ErrorDictionary} from '../utils/error.js';
 import config from '../config/index.js';
-import { logger } from '../utils/logger.js'
+import  logger  from '../utils/logger.js'
 
-import { ORDER_STATUS, DELIVERY_PRIORITY,RECEIPT_KEYS } from '../constants/index.js';
+import { ORDER_STATUS, DELIVERY_PRIORITY,RECEIPT_TYPES } from '../constants/index.js';
 
 
 

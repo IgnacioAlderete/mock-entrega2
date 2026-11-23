@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import ordersController from '../controllers/orders.controllers.js';
-import { uploadReceipt } from '../middlewares/upload.middleware.js'
+import { uploadReceipt } from '../middlewares/upload.Middleware.js'
 
 const router = Router();
 

@@ -45,3 +45,5 @@ class UsersService {
   }
   // ...resto igual
 }
+
+export default new UsersService()
